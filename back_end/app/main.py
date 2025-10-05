@@ -364,6 +364,7 @@ async def process_transcription(
             with open(session_file, "w", encoding="utf-8") as f:
                 json.dump(session_data, f, ensure_ascii=False, indent=2)
         print(f"[Main] Session {session_id} updated.")
+        return ("ok")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str("ohno"))
 

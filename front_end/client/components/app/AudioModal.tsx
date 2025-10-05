@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { buildUrl, getModels } from "@/lib/fastapi";
-import { loadSessions, Session, saveSessions } from "@/lib/sessions";
+import { loadSessions, saveSessions, Session } from "@/lib/sessions";
+import { Mic, Pause, Square, Upload, Download, X } from "lucide-react";
 
 export type SavedFile = { name: string; size: number; path: string };
 
@@ -15,43 +16,38 @@ export interface AudioModalProps {
   activeSessionId?: string | null;
 }
 
-export default function AudioModal({ open, initialMode, onClose, onSaved, onTranscribed, activeSessionId}: AudioModalProps) {
+export default function AudioModal({ open, initialMode, onClose, onSaved, onTranscribed, activeSessionId }: AudioModalProps) {
   const [mode, setMode] = useState<typeof initialMode>(initialMode);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [recording, setRecording] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [statusText, setStatusText] = useState("");
+  const [processing, setProcessing] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => { setMode(initialMode); }, [initialMode, open]);
 
-  const pickFile = (f: File) => {
-    const isWav = /wav/i.test(f.type) || /\.wav$/i.test(f.name);
-    if (!isWav) {
-      alert("Only .wav files are allowed.");
-      return;
-    }
-    setSelectedFile(f);
-  };
-
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) pickFile(f);
-    e.currentTarget.value = "";
-  };
-
+  // Recording handlers
   const startRec = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+
       const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
       mediaRecorderRef.current = mr;
       chunksRef.current = [];
+
       mr.ondataavailable = (ev) => { if (ev.data.size > 0) chunksRef.current.push(ev.data); };
       mr.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        chunksRef.current = [];
         const file = new File([blob], `recording-${Date.now()}.webm`, { type: "audio/webm" });
         setSelectedFile(file);
+        setAudioUrl(URL.createObjectURL(blob));
+        chunksRef.current = [];
         stream.getTracks().forEach((t) => t.stop());
       };
       mr.start();
@@ -62,65 +58,80 @@ export default function AudioModal({ open, initialMode, onClose, onSaved, onTran
       alert("Microphone access denied");
     }
   };
-
   const pauseRec = () => { mediaRecorderRef.current?.pause(); setPaused(true); };
   const resumeRec = () => { mediaRecorderRef.current?.resume(); setPaused(false); };
   const stopRec = () => { mediaRecorderRef.current?.stop(); setRecording(false); setPaused(false); };
   const quitRec = () => { try { mediaRecorderRef.current?.stop(); } catch {} setRecording(false); setPaused(false); setSelectedFile(null); };
 
-  const discardFile = () => {
-    setSelectedFile(null);
+  // File handlers
+  const pickFile = (f: File) => {
+    const isAllowed = /wav|webm/i.test(f.type) || /\.(wav|webm)$/i.test(f.name);
+    if (!isAllowed) {
+      alert("Only .wav or .webm files are allowed.");
+      return;
+    }
+    setSelectedFile(f);
+    setAudioUrl(URL.createObjectURL(f));
   };
-
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) pickFile(f);
+    e.currentTarget.value = "";
+  };
+  const discardFile = () => { setSelectedFile(null); setAudioUrl(null); };
   const downloadFile = () => {
     if (!selectedFile) return;
-    const url = URL.createObjectURL(selectedFile);
+    const url = audioUrl!;
     const a = document.createElement("a");
     a.href = url;
     a.download = selectedFile.name;
     document.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(url);
-
-    onSaved?.({ name: selectedFile.name, size: selectedFile.size, path: selectedFile.name });
   };
 
+  // Transcription & LLM processing
   const transcribe = async () => {
-  if (!selectedFile) return;
-    if (!activeSessionId) {
-  alert("No active session — cannot transcribe.");
-  return;
-}
-  const url = buildUrl("/transcribe_process"); // from your fastapi.ts
-  console.log("Opening AudioModal with session ID:", activeSessionId)
-  if (!url) { 
-    alert("Backend URL not set"); 
-    return; 
-  }
+    if (!selectedFile) return;
+    if (!activeSessionId) { alert("No active session — cannot transcribe."); return; }
 
-  const form = new FormData();
-  form.append("file", selectedFile);
-  form.append("session_id", activeSessionId);
-  // Add model param if you have it in your fastapi.ts
-  const models = getModels();
-  form.append("speech_model", models.speechToText);
-  form.append("llm_model", models.llm);
+    const url = buildUrl("/transcribe_process");
+    if (!url) { alert("Backend URL not set"); return; }
 
-  try {
-    const res = await fetch(url, { method: "POST", body: form });
-    if (!res.ok) {
-      alert("Transcription failed");
-      return;
+    const form = new FormData();
+    form.append("file", selectedFile);
+    form.append("session_id", activeSessionId);
+    const models = getModels();
+    form.append("speech_model", models.speechToText);
+    form.append("llm_model", models.llm);
+
+    setProcessing(true);
+    setStatusText("Transcribing...");
+    try {
+      const res = await fetch(url, { method: "POST", body: form });
+      if (!res.ok) throw new Error("Transcription failed");
+
+      setStatusText("Transcribed!");
+      await new Promise((r) => setTimeout(r, 2000));
+      setStatusText("Generating notes...");
+
+      const data = await res.json();
+      if (data !== "ok") throw new Error("LLM processing failed");
+
+      setStatusText("Generated!");
+      if (onSaved && selectedFile) onSaved({ name: selectedFile.name, size: selectedFile.size, path: selectedFile.name });
+      await new Promise((r) => setTimeout(r, 1000));
+
+      onClose();
+      window.location.reload();
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || "Processing failed");
+      setStatusText("");
+    } finally {
+      setProcessing(false);
     }
-    const updatedSessions = await loadSessions();
-    saveSessions(updatedSessions);
-  } catch (e: any) {
-    console.error("Transcription error:", e);
-    alert(`Transcription failed: ${e.message}`);
-  }
-    };
-
+  };
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -137,12 +148,12 @@ export default function AudioModal({ open, initialMode, onClose, onSaved, onTran
 
         {mode === "upload" ? (
           <div className="space-y-2">
-            <input type="file" accept="audio/wav,.wav" onChange={onFileChange} />
+            <input type="file" accept="audio/wav,.wav,audio/webm,.webm" onChange={onFileChange} />
           </div>
         ) : (
           <div className="space-y-2">
             {!recording ? (
-              <Button onClick={startRec}>Start recording</Button>
+              <Button onClick={startRec}><Mic className="mr-2 h-4 w-4" /> Start recording</Button>
             ) : (
               <div className="flex items-center gap-2">
                 {paused ? (
@@ -159,14 +170,23 @@ export default function AudioModal({ open, initialMode, onClose, onSaved, onTran
         {selectedFile && (
           <div className="flex items-center gap-2 mt-2">
             <div className="text-sm truncate">{selectedFile.name}</div>
-            <Button variant="destructive" size="sm" onClick={discardFile}>X</Button>
+            <Button variant="destructive" size="sm" onClick={discardFile}><X className="h-4 w-4" /></Button>
           </div>
         )}
 
-        <div className="flex items-center justify-end gap-2 mt-3">
-          <Button variant="outline" onClick={downloadFile} disabled={!selectedFile}>Download</Button>
-          <Button onClick={transcribe} disabled={!selectedFile}>Transcribe</Button>
+        <div className="flex items-center gap-2 mt-3">
+          <Button variant="outline" onClick={downloadFile} disabled={!selectedFile}><Download className="mr-2 h-4 w-4" />Download</Button>
+          <Button onClick={transcribe} disabled={!selectedFile || processing}>
+            {processing ? <span className="animate-spin mr-2 inline-block">⏳</span> : null}
+            {statusText || "Transcribe"}
+          </Button>
         </div>
+
+        {audioUrl && (
+          <div className="mt-2">
+            <audio controls src={audioUrl} className="w-full" />
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
