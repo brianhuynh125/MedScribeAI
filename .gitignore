@@ -1,1 +1,7 @@
 .venv/
+CACHE_DIR/
+back_end/__pycache__/
+back_end/CACHE_DIR/
+back_end/notes/
+.DS_Store
+front_end/node_modules/

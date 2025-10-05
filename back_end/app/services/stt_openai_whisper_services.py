@@ -1,15 +1,10 @@
 # stt_whisper_service.py
 import whisper
 from pydub import AudioSegment
+from faster_whisper import WhisperModel, BatchedInferencePipeline
 import os
 
-def convert_to_mono_16khz(audio_path: str, output_path: str = None) -> str:
-    audio = AudioSegment.from_file(audio_path)
-    audio = audio.set_channels(1).set_frame_rate(16000)
-    if not output_path:
-        output_path = audio_path.replace(".wav", "_mono.wav")
-    audio.export(output_path, format="wav")
-    return output_path
+
 
 class WhisperSTT:
     def __init__(self, model_name: str = "tiny.en", device: str = "cpu"):
@@ -20,7 +15,7 @@ class WhisperSTT:
         """
         self.model = whisper.load_model(model_name, device=device)
 
-    def transcribe(self, audio_path: str, language: str = None, task: str = "transcribe") -> str:
+    def batched_transcribe(self, audio_path: str, language: str = None, task: str = "transcribe") -> str:
         """
         Transcribe audio file
         language: ISO or name (optional)
@@ -28,7 +23,7 @@ class WhisperSTT:
         """
         # Convert to mono 16kHz for safety
         mono_path = convert_to_mono_16khz(audio_path)
-        
+        self.batched_model = BatchedInferencePipeline(self.model,)
         result = self.model.transcribe(mono_path, language=language, task=task)
         return result["text"]
 

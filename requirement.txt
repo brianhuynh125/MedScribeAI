@@ -11,6 +11,7 @@ python-docx
 weasyprint
 pydantic
 faster-whisper  # optional for faster local Whisper (if you want)
-"nemo_toolkit[asr,tss]"
+
 sacrebleu
 whisper
+nodeenv
