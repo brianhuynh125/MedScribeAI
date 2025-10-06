@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, Mic } from "lucide-react";
 import AudioModal, { SavedFile } from "@/components/app/AudioModal";
+import ThemeToggle from "@/components/app/ThemeToggle";
 
 export interface TopBarProps {
   onTranscribed: (text: string) => void;
@@ -28,6 +29,7 @@ export default function TopBar({ onTranscribed, activeSessionId}: TopBarProps) {
         <Button onClick={() => { console.log("Opening AudioModal with session ID:", activeSessionId);setModalMode("record"); setModalOpen(true); }}>
           <Mic /> Record
         </Button>
+        <ThemeToggle />
       </div>
       {attached.length > 0 && (
         <div className="flex max-w-[420px] flex-wrap gap-2">

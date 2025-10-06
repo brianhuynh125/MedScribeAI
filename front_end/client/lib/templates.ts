@@ -1,13 +1,15 @@
 const KEY_TEMPLATE_DEFAULT = "medscribe.template.default";
 
 export const DEFAULT_TEMPLATE = [
-  "Patient name",
-  "Patient sex",
-  "Patient age",
-  "Subjective",
-  "Objective",
-  "Assessment",
-  "Plan",
+  "Patient bio",
+  "HOPC",
+  "Medication history",
+  "Allergy History",
+  "Past Medical History",
+  "Family History",
+  "Social History",
+  "System Review",
+  "Plan/Referral",
 ].join("\n");
 
 export function getDefaultTemplate(): string {

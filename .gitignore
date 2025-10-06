@@ -5,3 +5,6 @@ back_end/CACHE_DIR/
 back_end/notes/
 .DS_Store
 front_end/node_modules/
+node_modules/
+package-lock.json
+package.json
