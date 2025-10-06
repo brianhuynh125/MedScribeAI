@@ -2,7 +2,7 @@
 
 AI-Powered Medical Note Scriber
 
-![Descriptive Alt Text](./demo.gif)
+![Descriptive Alt Text](./output.gif)
 
 ---
 
