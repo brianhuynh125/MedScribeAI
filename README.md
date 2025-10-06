@@ -19,7 +19,7 @@ Generation of structured medical notes for easy review and storage
 
 Multi-language and medical terminology support
 
-Multi-session data management to track and organize patient consultations over time
+Multi-session data management to track and organise patient consultations over time
 
 Customisable note templates allowing tailored documentation formats per clinician or specialty
 
