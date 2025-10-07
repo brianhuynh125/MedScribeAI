@@ -80,6 +80,19 @@ Then open `http://localhost:8080` in your browser.
 
 ---
 
+## Future Scope
+
+While it's just a quick prototype to demo the capability of AI in healthcare. Here are some to-do's in the future for this project:
+
+1. Add options for api keys (OpenAi, Gemini, NeMo).
+2. Add more medical-fine-tuned models.
+3. Add a directory of customisable prompts based on the role of the users: GPs, Specialists, Allied Heath Practitioners,...
+4. Complete the Insight AI feature, allowing to have a corpus of patient's sessions and functional AI chat.
+5. Prompt caching: build prompt caching architecture.
+6. Model finetuning: fintuning models on: 1) Users style of speech 2) Consultation's notes.
+
+---
+
 ## Contributing
 
 Contributions are welcome! Please open issues or PRs for bug fixes, features, or improvements.
