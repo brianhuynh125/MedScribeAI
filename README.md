@@ -39,7 +39,7 @@ Customisable note templates allowing tailored documentation formats per clinicia
 
 ### Prerequisites
 
-- Node.js and npm (for frontend)
+- Node.js and pnpm (for frontend)
 - Python 3.7+ (for backend)
 - Ollama (for local AI hosting)
 ### Installation
